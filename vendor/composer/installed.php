@@ -1,0 +1,86 @@
+<?php return array(
+    'root' => array(
+        'name' => '__root__',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '0d63d6aa50060628a8b563b75d4367bd3844b7a5',
+        'type' => 'library',
+        'install_path' => __DIR__ . '/../../',
+        'aliases' => array(),
+        'dev' => true,
+    ),
+    'versions' => array(
+        '__root__' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '0d63d6aa50060628a8b563b75d4367bd3844b7a5',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'container-interop/container-interop' => array(
+            'dev_requirement' => false,
+            'replaced' => array(
+                0 => '^1.2.0',
+            ),
+        ),
+        'laminas/laminas-log' => array(
+            'pretty_version' => '2.17.0',
+            'version' => '2.17.0.0',
+            'reference' => 'f24c4c78d3024bb59610845328d7876d6c797065',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../laminas/laminas-log',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'laminas/laminas-servicemanager' => array(
+            'pretty_version' => '3.22.1',
+            'version' => '3.22.1.0',
+            'reference' => 'de98d297d4743956a0558a6d71616979ff779328',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../laminas/laminas-servicemanager',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'laminas/laminas-stdlib' => array(
+            'pretty_version' => '3.19.0',
+            'version' => '3.19.0.0',
+            'reference' => '6a192dd0882b514e45506f533b833b623b78fff3',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../laminas/laminas-stdlib',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'psr/container' => array(
+            'pretty_version' => '1.1.2',
+            'version' => '1.1.2.0',
+            'reference' => '513e0666f7216c7459170d56df27dfcefe1689ea',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../psr/container',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'psr/container-implementation' => array(
+            'dev_requirement' => false,
+            'provided' => array(
+                0 => '^1.0',
+            ),
+        ),
+        'psr/log' => array(
+            'pretty_version' => '1.1.4',
+            'version' => '1.1.4.0',
+            'reference' => 'd49695b909c3b7628b6289db5479a1c204601f11',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../psr/log',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'psr/log-implementation' => array(
+            'dev_requirement' => false,
+            'provided' => array(
+                0 => '1.0.0',
+            ),
+        ),
+    ),
+);

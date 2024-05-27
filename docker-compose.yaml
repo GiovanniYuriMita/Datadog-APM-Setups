@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  php-app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_ENV=poshcash-teste
+      - DD_SERVICE=poshcash-wrapper
+      - DD_VERSION=1.0.0
+      - DD_LOGS_INJECTION=true
+    depends_on:
+      - datadog-agent
+
+  datadog-agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    environment:
+      - DD_API_KEY=90d66ff1a6ac119c212528355cdb5ae
+      - DD_APM_ENABLED=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_HOSTNAME=datadog-agent
+    ports:
+      - "8126:8126/tcp" # APM
+      - "8125:8125/udp" # DogStatsD
