@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Datadog C APM Tracer</title>
+    <script>
+        function runCFunction() {
+            fetch('/trace')
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+</head>
+<body>
+    <button onclick="runCFunction()">Run C Function</button>
+</body>
+</html>

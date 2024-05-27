@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  my-c-datadog-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8888:8888"
+    environment:
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_ENV=chofs
+      - DD_SERVICE=bw-c
+      - DD_VERSION=1.0.0
+      - DD_LOGS_INJECTION=true
+      - DD_LOGS_CONFIG_CONTAINER_SOURCE=c
+    depends_on:
+      - datadog-agent
+
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:latest
+    environment:
+      - DD_API_KEY=a5df13493376acd78d2f40bc59573c46
+      - DD_APM_ENABLED=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_HOSTNAME=datadog-agent
+    ports:
+      - "8126:8126/tcp" # APM
+      - "8125:8125/udp" # DogStatsD
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
