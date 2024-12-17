@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: node-slim
+    runs-on: node:slim
 
     steps:
       - name: Checkout code
