@@ -10,13 +10,18 @@ permissions:
 
 jobs:
   build:
-    runs-on: node:slim
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Set node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
 
       - name: Update docker-compose with commit SHA and version
         run: |
