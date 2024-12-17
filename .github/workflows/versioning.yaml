@@ -3,7 +3,7 @@ name: Simple-Pipeline
 on:
   push:
     branches:
-      - main
+      - python
 
 permissions:
   contents: write
