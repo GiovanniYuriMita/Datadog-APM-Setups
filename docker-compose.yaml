@@ -1,0 +1,37 @@
+version: '3.8'
+services:
+  python-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_ENV=chofs
+      - DD_SERVICE=bw-python
+      - DD_VERSION=20241030-1110
+      - DD_LOGS_INJECTION=true
+      - DD_DYNAMIC_INSTRUMENTATION_ENABLED=true
+      - DD_GIT_REPOSITORY_URL=github.com/bwsolucoes/Python-Datadog-APM
+      - DD_GIT_COMMIT_SHA=8cd93796d46297a07e7ada14552f5f83e36c23a2
+    depends_on:
+      - datadog-agent
+
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:latest
+    environment:
+      - DD_API_KEY=31a267f2581b0bc802203c8133ad8a2f
+      - DD_APM_ENABLED=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_APM_REPLACE_TAGS=[{"name":"error.stack","pattern":"\\(Array, [\\s\\S]*?, Array\\)","repl":"(Array, [Sensitive Data Redacted], Array"}]
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_HOSTNAME=datadog-agent
+    ports:
+      - "8126:8126/tcp" # APM
+      - "8125:8125/udp" # DogStatsD
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Collect logs

@@ -1,0 +1,43 @@
+name: Simple-Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: node-slim
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update docker-compose with commit SHA and version
+        run: |
+          COMMIT_SHA=${{ github.sha }}
+          VERSION=$(date +'%Y%m%d-%H%M')
+          sed -i "s/DD_GIT_COMMIT_SHA=.*/DD_GIT_COMMIT_SHA=$COMMIT_SHA/" docker-compose.yaml
+          sed -i "s/DD_VERSION=.*/DD_VERSION=$VERSION/" docker-compose.yaml
+          cat docker-compose.yaml
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Update docker-compose.yaml with commit SHA ${{ github.sha }} and version $VERSION"
+          git push
+
+      - name: Datadog CI test
+        run: |
+          npm install --save-dev @datadog/datadog-ci
+          npx @datadog/datadog-ci git-metadata upload
+        env: 
+          DD_API_KEY: fdc8a37c62302a4f4de9f3d76c468c59
+        
