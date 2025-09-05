@@ -1,31 +1,30 @@
-FROM php:8.3-apache
+FROM php:8.3-fpm-alpine
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install essential libraries for Datadog APM compatibility
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.18/main" > /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/v3.18/community" >> /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache \
+    libgcc \
+    libstdc++ \
+    libc6-compat \
+    gcompat \
+    nginx \
+    supervisor \
     git \
     curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
+    oniguruma-dev \
     libzip-dev \
-    zip \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
+    libpng-dev
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+# Install PHP extensions (minimal set)
+RUN docker-php-ext-install pdo_mysql mbstring zip
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www/html
-
-# Copy composer files
-COPY composer.json composer.lock* ./
-
-# Install PHP dependencies (skip for now, install at runtime)
-RUN echo "Skipping composer install during build"
 
 # Copy application code
 COPY . .
@@ -35,22 +34,52 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 storage bootstrap/cache
 
-# Configure Apache
-RUN a2enmod rewrite
-RUN echo '<VirtualHost *:80>\n\
-    DocumentRoot /var/www/html/public\n\
-    <Directory /var/www/html/public>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-    ErrorLog /proc/self/fd/2\n\
-    CustomLog /proc/self/fd/1 combined\n\
-    LogLevel warn\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+# Configure Nginx
+RUN cat > /etc/nginx/http.d/default.conf << 'EOF'
+server {
+    listen 80;
+    server_name localhost;
+    root /var/www/html/public;
+    index index.php index.html;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+EOF
+
+# Configure supervisor
+RUN mkdir -p /etc/supervisor/conf.d && \
+    cat > /etc/supervisor/conf.d/supervisord.conf << 'EOF'
+[supervisord]
+nodaemon=true
+
+[program:nginx]
+command=nginx -g "daemon off;"
+autostart=true
+autorestart=true
+
+[program:php-fpm]
+command=php-fpm -F
+autostart=true
+autorestart=true
+EOF
 
 # Install Datadog PHP extension
 RUN curl -LO https://github.com/DataDog/dd-trace-php/releases/latest/download/datadog-setup.php \
-    && php datadog-setup.php --php-bin=php --enable-appsec --enable-profiling
+    && php datadog-setup.php --php-bin=all --enable-appsec --enable-profiling \
+    && docker-php-ext-enable ddtrace
 
 # Configure PHP for Laravel
 RUN echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/laravel.ini \
@@ -77,13 +106,10 @@ RUN echo "APP_KEY=base64:$(openssl rand -base64 32)" > .env \
     && echo "DD_TAGS=env:local,service:laravel-datadog-apm" >> .env \
     && echo "DD_LOGS_ENABLED=true" >> .env \
     && echo "DD_LOGS_INJECTION=true" >> .env \
-    && echo "DD_PROFILING_ENABLED=true" >> .env
+    && echo "DD_PROFILING_ENABLED=true" >> .env \
+    && echo "DD_TRACE_CLI_ENABLED=true" >> .env \
+    && echo "DD_TRACE_RESOURCE_URI_MAPPING_INCOMING=*" >> .env
 
-# Generate application key (skip for now)
-RUN echo "Skipping artisan key:generate"
-
-# Expose port 80
 EXPOSE 80
 
-# Start Apache
-CMD ["apache2-foreground"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
