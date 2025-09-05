@@ -27,6 +27,8 @@ If you want to send traces to Datadog, set your API key:
 export DD_API_KEY=your-datadog-api-key-here
 ```
 
+**⚠️ Security Note**: Never commit your actual API key to the repository. The `docker-compose.yaml` file uses environment variables to safely handle sensitive data.
+
 ### 2. Build and Run
 
 ```bash
