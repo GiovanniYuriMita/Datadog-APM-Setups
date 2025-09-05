@@ -1,34 +1,35 @@
-version: '3.8'
+version: "3.8"
+
 services:
-  php-app:
-    build:
-      context: app/
-      dockerfile: Dockerfile
+  laravel-app:
+    build: .
     ports:
       - "8080:80"
     environment:
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_AGENT_PORT=8126
       - DD_ENV=local
-      - DD_SERVICE=teste-php
+      - DD_SERVICE=laravel-datadog-apm
       - DD_VERSION=1.0.0
-      - DD_TRACE_DEBUG=true
+      - DD_LOGS_ENABLED=true
+      - DD_PROFILING_ENABLED=true
     depends_on:
       - datadog-agent
 
   datadog-agent:
     image: gcr.io/datadoghq/agent:latest
     environment:
-      - DD_API_KEY=<api-key>
-      - DD_SITE=datadoghq.com
+      - DD_API_KEY=${DD_API_KEY:-your-datadog-api-key-here}
+      - DD_SITE=${DD_SITE:-us5.datadoghq.com}
       - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
       - DD_LOGS_ENABLED=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
       - DD_PROCESS_AGENT_ENABLED=true
-      - DD_APM_NON_LOCAL_TRAFFIC=true
-      - DD_HOSTNAME=datadog-agent
     ports:
-      - "8126:8126/tcp" # APM
-      - "8125:8125/udp" # DogStatsD
+      - "8125:8125/udp"
+      - "8126:8126/tcp"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # Collect logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
