@@ -1,0 +1,45 @@
+# Git
+.git
+.github
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!app/*.md
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+load_test.py
+load_test.sh
+test_api.sh
+docker-compose.yaml
+
+# Keep Zscaler cert for build
+!ZscalerRootCA.pem
+
+

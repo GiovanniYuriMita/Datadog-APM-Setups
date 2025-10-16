@@ -1,52 +1,99 @@
-import time
-import logging
+"""
+Datadog APM Logging Best Practices Demo API - Main Application
+
+Arquivo principal simplificado que orquestra todos os componentes.
+
+ESTRUTURA DO PROJETO:
+├── app.py                  # ← VOCÊ ESTÁ AQUI (orquestrador)
+├── config.py               # Configurações
+├── logging_config.py       # Setup de logging
+├── utils/                  # Utilitários
+│   ├── security.py         # Proteção de PII (masking, hashing)
+│   └── decorators.py       # Request logging decorator
+├── models/                 # Dados
+│   └── data.py             # Mock data (users, products, transactions)
+└── routes/                 # Endpoints (cada arquivo demonstra conceitos específicos)
+    ├── home.py             # Endpoint raiz
+    ├── health.py           # ⭐ DEBUG logging (health checks)
+    ├── users.py            # ⭐ PII protection (masking, hashing)
+    ├── products.py         # Logging simples
+    ├── transactions.py     # ⭐⭐⭐ MAIS IMPORTANTE! Transaction stages, validações
+    ├── analytics.py        # Logging de queries
+    └── errors.py           # ⭐ Error handling (try/catch, categorização)
+
+ARQUIVOS PRINCIPAIS PARA DEMONSTRAÇÃO:
+1. routes/transactions.py - Logging de operações críticas
+2. routes/users.py        - Proteção de PII
+3. routes/errors.py       - Error handling
+4. utils/security.py      - Funções de segurança
+5. utils/decorators.py    - Request tracking
+"""
+
+import os
+from flask import Flask
 from ddtrace import tracer, patch_all
 from ddtrace.debugging import DynamicInstrumentation
 
+# Importa configuração
+import config
+from logging_config import logger
+
+# Importa blueprints (rotas)
+from routes import (
+    health_bp,
+    home_bp,
+    users_bp,
+    products_bp,
+    transactions_bp,
+    analytics_bp,
+    errors_bp
+)
+
+# ============================================================================
+# DATADOG APM SETUP
+# ============================================================================
+
+# Habilita Dynamic Instrumentation
 DynamicInstrumentation.enable()
 
-# Enable Datadog auto-instrumentation
+# Habilita auto-instrumentação para Flask e bibliotecas
+# Isso captura automaticamente requests HTTP, database calls, etc
 patch_all()
 
-# Configure logging
-FORMAT = ('%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] '
-          '[dd.service=%(dd.service)s dd.env=%(dd.env)s dd.version=%(dd.version)s dd.trace_id=%(dd.trace_id)s dd.span_id=%(dd.span_id)s] '
-          '- %(message)s')
-logging.basicConfig(format=FORMAT)
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+# ============================================================================
+# FLASK APP SETUP
+# ============================================================================
 
-# Function to create and log custom spans
-def create_custom_span():
-    with tracer.trace("custom.span", service="bw-python") as span:
-        span.set_tag("abc", "123")
-        log.info("Custom span created")
+app = Flask(__name__)
 
-class CustomClass:
-    def __init__(self, name):
-        self.name = name
+# Registra todos os blueprints (endpoints)
+app.register_blueprint(home_bp)
+app.register_blueprint(health_bp)
+app.register_blueprint(users_bp)
+app.register_blueprint(products_bp)
+app.register_blueprint(transactions_bp)
+app.register_blueprint(analytics_bp)
+app.register_blueprint(errors_bp)
 
-    def process_data(self, data):
-        log.info(f"Processing data: {data}...")
-        processed_data = data.upper()
-        log.info(f"Processed data: {processed_data}")
-        return processed_data
-
-    def calculate(self, a, b):
-        log.info(f"Calculating the sum of {a} and {b}")
-        result = a + b
-        log.info(f"Calculation result: {result}")
-        return result
-
-def main():
-    print("Hello!\nThis is a simple Python App Designed by BW Soluções to show Datadog features.")
-    custom_obj = CustomClass("ExampleClass")
-
-    while True:
-        create_custom_span()
-        custom_obj.process_data("sample data")
-        custom_obj.calculate(2, 2)
-        time.sleep(3)
+# ============================================================================
+# APPLICATION STARTUP
+# ============================================================================
 
 if __name__ == "__main__":
-    main()
+    # Log de inicialização da aplicação
+    logger.info(
+        "Starting Datadog APM Logging Best Practices Demo API",
+        extra={
+            'service': config.SERVICE_NAME,
+            'environment': config.ENVIRONMENT,
+            'version': config.VERSION,
+            'event': 'application_startup'
+        }
+    )
+    
+    # Inicia servidor Flask
+    app.run(
+        host=config.HOST,
+        port=config.PORT,
+        debug=config.DEBUG
+    )
