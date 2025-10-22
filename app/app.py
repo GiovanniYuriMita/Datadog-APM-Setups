@@ -38,6 +38,9 @@ from ddtrace.debugging import DynamicInstrumentation
 import config
 from logging_config import logger
 
+# Importa middleware do Datadog
+from utils.datadog_middleware import DatadogTracingMiddleware
+
 # Importa blueprints (rotas)
 from routes import (
     health_bp,
@@ -48,6 +51,7 @@ from routes import (
     analytics_bp,
     errors_bp
 )
+from routes.middleware_demo import middleware_demo_bp
 
 # ============================================================================
 # DATADOG APM SETUP
@@ -66,6 +70,9 @@ patch_all()
 
 app = Flask(__name__)
 
+# Inicializa middleware do Datadog para capturar payloads
+DatadogTracingMiddleware(app)
+
 # Registra todos os blueprints (endpoints)
 app.register_blueprint(home_bp)
 app.register_blueprint(health_bp)
@@ -74,6 +81,7 @@ app.register_blueprint(products_bp)
 app.register_blueprint(transactions_bp)
 app.register_blueprint(analytics_bp)
 app.register_blueprint(errors_bp)
+app.register_blueprint(middleware_demo_bp)
 
 # ============================================================================
 # APPLICATION STARTUP
