@@ -47,6 +47,12 @@ def simulate_error():
     """
     
     error_type = request.args.get('type', 'generic')
+    # Variáveis locais para Exception Replay
+    user_id = request.args.get('user_id', 'demo-user')
+    amount_raw = request.args.get('amount', '0')
+    currency = request.args.get('currency', 'BRL')
+    request_id = request.headers.get('X-Request-Id', 'req-demo')
+    payment_ref = f"{user_id}:{currency}:{amount_raw}"
     
     def _attach_error(span, exc, stack):
         if not span:
@@ -73,15 +79,28 @@ def simulate_error():
         try:
             # Simula diferentes tipos de erros
             if error_type == 'division':
-                result = 1 / 0  # ZeroDivisionError
+                divisor = int(request.args.get('divisor', '0'))
+                dividend = int(request.args.get('dividend', '1'))
+                result = dividend / divisor  # ZeroDivisionError
                 
             elif error_type == 'timeout':
-                time.sleep(30)  # Simula timeout
+                timeout_seconds = int(request.args.get('timeout', '30'))
+                time.sleep(timeout_seconds)  # Simula timeout
                 
             elif error_type == 'validation':
+                amount = float(amount_raw)
+                if amount <= 0:
+                    raise ValueError("Invalid amount: must be greater than zero")
                 raise ValueError("Invalid input parameters provided")
                 
             else:
+                payload = {
+                    "user_id": user_id,
+                    "amount": amount_raw,
+                    "currency": currency,
+                    "request_id": request_id,
+                    "payment_ref": payment_ref,
+                }
                 raise Exception(f"Simulated {error_type} error for testing")
         
         # ========================================
@@ -104,7 +123,11 @@ def simulate_error():
                     'is_test': True
                 }
             )
-            return jsonify({"error": "Division by zero"}), 400
+            return jsonify({
+                "error": "Division by zero",
+                "request_id": request_id,
+                "payment_ref": payment_ref
+            }), 400
         
         # ========================================
         # EXEMPLO 2: ERRO DE VALIDAÇÃO
@@ -125,7 +148,11 @@ def simulate_error():
                     'is_test': True
                 }
             )
-            return jsonify({"error": str(e)}), 400
+            return jsonify({
+                "error": str(e),
+                "request_id": request_id,
+                "payment_ref": payment_ref
+            }), 400
         
         # ========================================
         # EXEMPLO 3: ERRO GENÉRICO/INESPERADO
@@ -147,5 +174,9 @@ def simulate_error():
                     'is_test': True
                 }
             )
-            return jsonify({"error": "Internal server error"}), 500
+            return jsonify({
+                "error": "Internal server error",
+                "request_id": request_id,
+                "payment_ref": payment_ref
+            }), 500
 
