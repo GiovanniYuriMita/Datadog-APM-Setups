@@ -15,18 +15,20 @@ services:
       - DD_TRACE_AGENT_PORT=8126
       - DD_ENV=chofs
       - DD_SERVICE=chofs-api
-      - DD_VERSION=20241217-1149
+      - DD_VERSION=20260122-2018
       - DD_LOGS_INJECTION=true
       - DD_DYNAMIC_INSTRUMENTATION_ENABLED=true
+      - DD_EXCEPTION_REPLAY_ENABLED=true
+      - DD_PROFILING_ENABLED=true
       - DD_GIT_REPOSITORY_URL=github.com/GiovanniYuriMita/Datadog-APM-Setups
-      # - DD_GIT_COMMIT_SHA=819b675f078d65cc89874db7e3ed97882a0405ea
+      - DD_GIT_COMMIT_SHA=${COMMIT_SHA}
     depends_on:
       - datadog-agent
 
   datadog-agent:
     image: gcr.io/datadoghq/agent:latest
     environment:
-      - DD_API_KEY=95133a7e07766a49f04c47ce08e9e47d
+      - DD_API_KEY=${DD_API_KEY}
       - DD_APM_ENABLED=true
       - DD_LOGS_ENABLED=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
@@ -38,4 +40,4 @@ services:
       - "8126:8126/tcp" # APM
       - "8125:8125/udp" # DogStatsD
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # Collect logs
+      - /var/run/docker.sock:/var/run/docker.sock # Collect logs from Docker

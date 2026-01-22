@@ -10,6 +10,7 @@ como fazer logging apropriado em cada caso.
 
 import logging
 import time
+import traceback
 from flask import Blueprint, request, jsonify
 from ddtrace import tracer
 # Não precisamos mais de decorators - APM já captura requests
@@ -47,8 +48,16 @@ def simulate_error():
     
     error_type = request.args.get('type', 'generic')
     
+    def _attach_error(span, exc, stack):
+        if not span:
+            return
+        span.set_tag("error", True)
+        span.set_tag("error.type", type(exc).__name__)
+        span.set_tag("error.message", str(exc))
+        span.set_tag("error.stack", stack)
+        span.set_exc_info(type(exc), exc, exc.__traceback__)
+
     with tracer.trace("error.simulation", service="chofs-api") as span:
-        span.set_tag("error_type", error_type)
         span.set_tag("error.type", error_type)
         
         # LOG: Início da simulação
@@ -56,7 +65,7 @@ def simulate_error():
             f"Simulating error of type: {error_type}",
             extra={
                 'operation': 'error.simulation',
-                'error_type': error_type,
+                'error.type': error_type,
                 'is_test': True  # Flag para identificar que é teste
             }
         )
@@ -81,14 +90,16 @@ def simulate_error():
         except ZeroDivisionError as e:
             # LOG: Erro específico e esperado
             # ✅ BOM: Use padrões Datadog (error.type, error.message, error.stack)
-            import traceback
+            error_stack = traceback.format_exc()
+            _attach_error(span, e, error_stack)
+            _attach_error(tracer.current_root_span(), e, error_stack)
             logger.error(
                 "Division by zero error occurred",
                 extra={
                     'operation': 'error.simulation',
                     'error.type': 'ZeroDivisionError',
                     'error.message': str(e),
-                    'error.stack': traceback.format_exc(),
+                    'error.stack': error_stack,
                     'error_category': 'arithmetic_error',
                     'is_test': True
                 }
@@ -101,6 +112,9 @@ def simulate_error():
         except ValueError as e:
             # LOG: Erro de validação (erro de negócio)
             # ✅ Use WARNING (não ERROR) + padrões Datadog
+            error_stack = traceback.format_exc()
+            _attach_error(span, e, error_stack)
+            _attach_error(tracer.current_root_span(), e, error_stack)
             logger.warning(
                 f"Validation error: {str(e)}",
                 extra={
@@ -119,14 +133,16 @@ def simulate_error():
         except Exception as e:
             # LOG: Erro inesperado - precisa investigação
             # ✅ BOM: Use padrões Datadog (error.type, error.message, error.stack)
-            import traceback
+            error_stack = traceback.format_exc()
+            _attach_error(span, e, error_stack)
+            _attach_error(tracer.current_root_span(), e, error_stack)
             logger.error(
                 f"Unexpected error in simulation: {str(e)}",
                 extra={
                     'operation': 'error.simulation',
                     'error.type': type(e).__name__,
                     'error.message': str(e),
-                    'error.stack': traceback.format_exc(),
+                    'error.stack': error_stack,
                     'error_category': 'unexpected',
                     'is_test': True
                 }
