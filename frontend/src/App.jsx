@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { datadogRum } from '@datadog/browser-rum'
 import './App.css'
 
 const DEFAULT_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
@@ -49,7 +50,13 @@ const ResultPanel = ({ result }) => {
   )
 }
 
+const createSessionId = () =>
+  `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [profile, setProfile] = useState({ name: '', email: '' })
+  const [sessionId, setSessionId] = useState('')
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_BASE_URL)
   const normalizedBaseUrl = useMemo(() => normalizeBaseUrl(apiBaseUrl), [apiBaseUrl])
   const [requestId, setRequestId] = useState('demo-request-001')
@@ -60,6 +67,7 @@ function App() {
   const [transactionResult, setTransactionResult] = useState(null)
   const [analyticsResult, setAnalyticsResult] = useState(null)
   const [errorResult, setErrorResult] = useState(null)
+  const [computeErrorResult, setComputeErrorResult] = useState(null)
 
   const [userId, setUserId] = useState('user_001')
   const [transactionForm, setTransactionForm] = useState({
@@ -76,12 +84,41 @@ function App() {
     dividend: '1',
     timeout: '3'
   })
+  const [computeForm, setComputeForm] = useState({
+    base_value: '10',
+    multiplier: '2',
+    operation: 'scale',
+    force_error: true
+  })
+
+  useEffect(() => {
+    const stored = localStorage.getItem('dd-demo-user')
+    if (!stored) {
+      return
+    }
+    try {
+      const parsed = JSON.parse(stored)
+      if (parsed?.name && parsed?.email) {
+        setProfile({ name: parsed.name, email: parsed.email })
+        if (parsed.sessionId) {
+          setSessionId(parsed.sessionId)
+        }
+        setIsAuthenticated(true)
+        datadogRum.setUser({ id: parsed.email, name: parsed.name, email: parsed.email })
+      }
+    } catch {
+      localStorage.removeItem('dd-demo-user')
+    }
+  }, [])
 
   const apiRequest = async ({ path, method = 'GET', body }) => {
     const url = buildUrl(apiBaseUrl, path)
     const headers = { 'Accept': 'application/json' }
     if (requestId.trim()) {
       headers['X-Request-Id'] = requestId.trim()
+    }
+    if (sessionId) {
+      headers['X-Session-Id'] = sessionId
     }
     if (body) {
       headers['Content-Type'] = 'application/json'
@@ -167,12 +204,100 @@ function App() {
     setErrorResult(await apiRequest({ path: `/api/error/simulate?${params.toString()}` }))
   }
 
+  const handleComputeError = async () => {
+    const payload = {
+      base_value: Number(computeForm.base_value),
+      multiplier: Number(computeForm.multiplier),
+      operation: computeForm.operation,
+      force_error: computeForm.force_error
+    }
+    setComputeErrorResult(
+      await apiRequest({ path: '/api/error/compute', method: 'POST', body: payload })
+    )
+  }
+
+  const handleLogin = (event) => {
+    event.preventDefault()
+    const name = profile.name.trim()
+    const email = profile.email.trim()
+    if (!name || !email) {
+      return
+    }
+    const nextSessionId = sessionId || createSessionId()
+    setSessionId(nextSessionId)
+    localStorage.setItem('dd-demo-user', JSON.stringify({ name, email, sessionId: nextSessionId }))
+    datadogRum.setUser({ id: email, name, email })
+    setIsAuthenticated(true)
+  }
+
+  const handleLogout = () => {
+    datadogRum.stopSession()
+    datadogRum.setUser({})
+    localStorage.removeItem('dd-demo-user')
+    setIsAuthenticated(false)
+    setSessionId('')
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="app auth">
+        <header className="app-header">
+          <div>
+            <h1>Datadog APM Frontend Demo</h1>
+            <p>Informe nome e email para iniciar uma sessão.</p>
+          </div>
+        </header>
+        <section className="card">
+          <h2>Login fake</h2>
+          <form className="field-grid" onSubmit={handleLogin}>
+            <label>
+              Nome
+              <input
+                type="text"
+                value={profile.name}
+                onChange={(event) =>
+                  setProfile((prev) => ({ ...prev, name: event.target.value }))
+                }
+                placeholder="Ex: Maria Silva"
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={profile.email}
+                onChange={(event) =>
+                  setProfile((prev) => ({ ...prev, email: event.target.value }))
+                }
+                placeholder="email@exemplo.com"
+              />
+            </label>
+            <button type="submit">Entrar</button>
+          </form>
+        </section>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <header className="app-header">
         <div>
           <h1>Datadog APM Frontend Demo</h1>
           <p>UI rápida para simular interações e erros da API Python.</p>
+        </div>
+        <div className="base-url">
+          <label>
+            Usuário logado
+            <input
+              type="text"
+              value={`${profile.name} <${profile.email}>`}
+              readOnly
+            />
+          </label>
+          <button className="secondary" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
         <div className="base-url">
           <label>
@@ -427,6 +552,59 @@ function App() {
           </div>
           <button onClick={handleErrorSimulation}>Simular erro</button>
           <ResultPanel result={errorResult} />
+        </section>
+
+        <section className="card">
+          <h2>Exception com inputs/outputs</h2>
+          <p>POST que calcula valores e dispara exceção.</p>
+          <div className="field-grid">
+            <label>
+              base_value
+              <input
+                type="number"
+                value={computeForm.base_value}
+                onChange={(event) =>
+                  setComputeForm((prev) => ({ ...prev, base_value: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              multiplier
+              <input
+                type="number"
+                value={computeForm.multiplier}
+                onChange={(event) =>
+                  setComputeForm((prev) => ({ ...prev, multiplier: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              operation
+              <select
+                value={computeForm.operation}
+                onChange={(event) =>
+                  setComputeForm((prev) => ({ ...prev, operation: event.target.value }))
+                }
+              >
+                <option value="scale">scale</option>
+                <option value="divide">divide</option>
+              </select>
+            </label>
+            <label>
+              force_error
+              <select
+                value={computeForm.force_error ? 'true' : 'false'}
+                onChange={(event) =>
+                  setComputeForm((prev) => ({ ...prev, force_error: event.target.value === 'true' }))
+                }
+              >
+                <option value="true">true</option>
+                <option value="false">false</option>
+              </select>
+            </label>
+          </div>
+          <button onClick={handleComputeError}>Executar compute</button>
+          <ResultPanel result={computeErrorResult} />
         </section>
       </main>
     </div>

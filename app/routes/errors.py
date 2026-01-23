@@ -10,7 +10,7 @@ como fazer logging apropriado em cada caso.
 
 import logging
 import time
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, jsonify
 # Não precisamos mais de decorators - APM já captura requests
 
 logger = logging.getLogger(__name__)
@@ -50,10 +50,12 @@ def simulate_error():
     amount_raw = request.args.get('amount', '0')
     currency = request.args.get('currency', 'BRL')
     request_id = request.headers.get('X-Request-Id', 'req-demo')
+    session_id = request.headers.get('X-Session-Id')
     payment_ref = f"{user_id}:{currency}:{amount_raw}"
     
     g.error_context = {
         "request_id": request_id,
+        "session_id": session_id,
         "payment_ref": payment_ref
     }
 
@@ -71,7 +73,7 @@ def simulate_error():
     if error_type == 'division':
         divisor = int(request.args.get('divisor', '0'))
         dividend = int(request.args.get('dividend', '1'))
-        dividend / divisor  # ZeroDivisionError
+        raise ZeroDivisionError(f"division by zero ({dividend}/{divisor})")
         return ""
 
     if error_type == 'timeout':
@@ -86,4 +88,48 @@ def simulate_error():
         raise ValueError("Invalid input parameters provided")
 
     raise Exception(f"Simulated {error_type} error for testing")
+
+
+@errors_bp.route('/api/error/compute', methods=['POST'])
+def compute_error():
+    """
+    Calcula um valor simples e opcionalmente lança exceção.
+    Retorna inputs/outputs no erro para Exception Replay.
+    """
+    payload = request.get_json() or {}
+    request_id = request.headers.get('X-Request-Id')
+    session_id = request.headers.get('X-Session-Id')
+    base_value = float(payload.get('base_value', 10))
+    multiplier = float(payload.get('multiplier', 2))
+    force_error = bool(payload.get('force_error', True))
+    operation = payload.get('operation', 'scale')
+
+    result = None
+    if operation == 'scale':
+        result = base_value * multiplier
+    elif operation == 'divide':
+        result = base_value / multiplier
+    else:
+        raise ValueError("Unsupported operation. Use 'scale' or 'divide'.")
+
+    g.error_context = {
+        "request_id": request_id,
+        "session_id": session_id,
+        "inputs": {
+            "base_value": base_value,
+            "multiplier": multiplier,
+            "operation": operation,
+        },
+        "output": {
+            "result": result,
+        },
+    }
+
+    if force_error:
+        raise RuntimeError("Simulated compute error for Exception Replay")
+
+    return jsonify({
+        "result": result,
+        "operation": operation
+    }), 200
 

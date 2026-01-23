@@ -150,6 +150,8 @@ def handle_exception(exc):
     status_code = 500
     error_message = "Internal server error"
     error_category = "unexpected"
+    request_id = request.headers.get("X-Request-Id")
+    session_id = request.headers.get("X-Session-Id")
 
     if isinstance(exc, ValueError):
         status_code = 400
@@ -175,6 +177,10 @@ def handle_exception(exc):
         f"API error handled: {error_message}",
         extra={
             "operation": "api.error_handler",
+            "request_id": request_id,
+            "session_id": session_id,
+            "http.method": request.method,
+            "http.url": request.path,
             "error.type": type(exc).__name__,
             "error.message": str(exc),
             "error.stack": traceback.format_exc(),
@@ -183,6 +189,19 @@ def handle_exception(exc):
     )
 
     payload = {"error": error_message}
+    payload.update({
+        "request_id": request_id,
+        "session_id": session_id,
+        "http": {
+            "method": request.method,
+            "path": request.path,
+            "query": request.args.to_dict(flat=True),
+        },
+        "client": {
+            "ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "user_agent": request.user_agent.string,
+        },
+    })
     if hasattr(g, "error_context"):
         payload.update(g.error_context)
 
