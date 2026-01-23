@@ -30,7 +30,9 @@ ARQUIVOS PRINCIPAIS PARA DEMONSTRAÇÃO:
 """
 
 import os
-from flask import Flask
+import traceback
+from flask import Flask, request, make_response, jsonify, g
+from werkzeug.exceptions import HTTPException
 from ddtrace import tracer, patch_all
 from ddtrace.debugging import DynamicInstrumentation
 
@@ -70,6 +72,50 @@ patch_all()
 
 app = Flask(__name__)
 
+# ============================================================================
+# CORS SETUP (RUM <-> TRACES CORRELATION HEADERS)
+# ============================================================================
+
+_CORS_ALLOWED_HEADERS = [
+    "Content-Type",
+    "Accept",
+    "X-Request-Id",
+    "x-datadog-trace-id",
+    "x-datadog-parent-id",
+    "x-datadog-origin",
+    "x-datadog-sampling-priority",
+    "traceparent",
+    "tracestate",
+    "b3",
+    "x-b3-traceid",
+    "x-b3-spanid",
+    "x-b3-sampled",
+    "x-b3-flags"
+]
+
+_CORS_ALLOWED_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+_CORS_ALLOWED_HEADERS_VALUE = ", ".join(_CORS_ALLOWED_HEADERS)
+
+
+@app.before_request
+def _handle_preflight():
+    if request.method != "OPTIONS":
+        return None
+    response = make_response("", 204)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = _CORS_ALLOWED_METHODS
+    response.headers["Access-Control-Allow-Headers"] = _CORS_ALLOWED_HEADERS_VALUE
+    response.headers["Access-Control-Max-Age"] = "600"
+    return response
+
+
+@app.after_request
+def _add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = _CORS_ALLOWED_METHODS
+    response.headers["Access-Control-Allow-Headers"] = _CORS_ALLOWED_HEADERS_VALUE
+    return response
+
 # Inicializa middleware do Datadog para capturar payloads
 DatadogTracingMiddleware(app)
 
@@ -82,6 +128,65 @@ app.register_blueprint(transactions_bp)
 app.register_blueprint(analytics_bp)
 app.register_blueprint(errors_bp)
 app.register_blueprint(middleware_demo_bp)
+
+# ============================================================================
+# ERROR HANDLING (attach error tags to active span)
+# ============================================================================
+
+def _tag_error_on_span(exc):
+    span = tracer.current_span() or tracer.current_root_span()
+    if not span:
+        return
+    stack = traceback.format_exc()
+    span.set_tag("error", True)
+    span.set_tag("error.type", type(exc).__name__)
+    span.set_tag("error.message", str(exc))
+    span.set_tag("error.stack", stack)
+    span.set_exc_info(type(exc), exc, exc.__traceback__)
+
+
+@app.errorhandler(Exception)
+def handle_exception(exc):
+    status_code = 500
+    error_message = "Internal server error"
+    error_category = "unexpected"
+
+    if isinstance(exc, ValueError):
+        status_code = 400
+        error_message = str(exc)
+        error_category = "business_logic"
+    elif isinstance(exc, ZeroDivisionError):
+        status_code = 400
+        error_message = "Division by zero"
+        error_category = "arithmetic_error"
+    elif isinstance(exc, TimeoutError):
+        status_code = 504
+        error_message = "Request timeout"
+        error_category = "timeout"
+    elif isinstance(exc, HTTPException):
+        status_code = exc.code or 500
+        error_message = exc.description or error_message
+        error_category = "http_error"
+
+    _tag_error_on_span(exc)
+
+    logger_level = logger.warning if status_code < 500 else logger.error
+    logger_level(
+        f"API error handled: {error_message}",
+        extra={
+            "operation": "api.error_handler",
+            "error.type": type(exc).__name__,
+            "error.message": str(exc),
+            "error.stack": traceback.format_exc(),
+            "error_category": error_category,
+        }
+    )
+
+    payload = {"error": error_message}
+    if hasattr(g, "error_context"):
+        payload.update(g.error_context)
+
+    return jsonify(payload), status_code
 
 # ============================================================================
 # APPLICATION STARTUP

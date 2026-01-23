@@ -10,9 +10,7 @@ como fazer logging apropriado em cada caso.
 
 import logging
 import time
-import traceback
-from flask import Blueprint, request, jsonify
-from ddtrace import tracer
+from flask import Blueprint, request, g
 # Não precisamos mais de decorators - APM já captura requests
 
 logger = logging.getLogger(__name__)
@@ -54,129 +52,38 @@ def simulate_error():
     request_id = request.headers.get('X-Request-Id', 'req-demo')
     payment_ref = f"{user_id}:{currency}:{amount_raw}"
     
-    def _attach_error(span, exc, stack):
-        if not span:
-            return
-        span.set_tag("error", True)
-        span.set_tag("error.type", type(exc).__name__)
-        span.set_tag("error.message", str(exc))
-        span.set_tag("error.stack", stack)
-        span.set_exc_info(type(exc), exc, exc.__traceback__)
+    g.error_context = {
+        "request_id": request_id,
+        "payment_ref": payment_ref
+    }
 
-    with tracer.trace("error.simulation", service="chofs-api") as span:
-        span.set_tag("error.type", error_type)
-        
-        # LOG: Início da simulação
-        logger.info(
-            f"Simulating error of type: {error_type}",
-            extra={
-                'operation': 'error.simulation',
-                'error.type': error_type,
-                'is_test': True  # Flag para identificar que é teste
-            }
-        )
-        
-        try:
-            # Simula diferentes tipos de erros
-            if error_type == 'division':
-                divisor = int(request.args.get('divisor', '0'))
-                dividend = int(request.args.get('dividend', '1'))
-                result = dividend / divisor  # ZeroDivisionError
-                
-            elif error_type == 'timeout':
-                timeout_seconds = int(request.args.get('timeout', '30'))
-                time.sleep(timeout_seconds)  # Simula timeout
-                
-            elif error_type == 'validation':
-                amount = float(amount_raw)
-                if amount <= 0:
-                    raise ValueError("Invalid amount: must be greater than zero")
-                raise ValueError("Invalid input parameters provided")
-                
-            else:
-                payload = {
-                    "user_id": user_id,
-                    "amount": amount_raw,
-                    "currency": currency,
-                    "request_id": request_id,
-                    "payment_ref": payment_ref,
-                }
-                raise Exception(f"Simulated {error_type} error for testing")
-        
-        # ========================================
-        # EXEMPLO 1: ERRO ARITMÉTICO
-        # ========================================
-        except ZeroDivisionError as e:
-            # LOG: Erro específico e esperado
-            # ✅ BOM: Use padrões Datadog (error.type, error.message, error.stack)
-            error_stack = traceback.format_exc()
-            _attach_error(span, e, error_stack)
-            _attach_error(tracer.current_root_span(), e, error_stack)
-            logger.error(
-                "Division by zero error occurred",
-                extra={
-                    'operation': 'error.simulation',
-                    'error.type': 'ZeroDivisionError',
-                    'error.message': str(e),
-                    'error.stack': error_stack,
-                    'error_category': 'arithmetic_error',
-                    'is_test': True
-                }
-            )
-            return jsonify({
-                "error": "Division by zero",
-                "request_id": request_id,
-                "payment_ref": payment_ref
-            }), 400
-        
-        # ========================================
-        # EXEMPLO 2: ERRO DE VALIDAÇÃO
-        # ========================================
-        except ValueError as e:
-            # LOG: Erro de validação (erro de negócio)
-            # ✅ Use WARNING (não ERROR) + padrões Datadog
-            error_stack = traceback.format_exc()
-            _attach_error(span, e, error_stack)
-            _attach_error(tracer.current_root_span(), e, error_stack)
-            logger.warning(
-                f"Validation error: {str(e)}",
-                extra={
-                    'operation': 'error.simulation',
-                    'error.type': 'ValueError',
-                    'error.message': str(e),
-                    'error_category': 'business_logic',
-                    'is_test': True
-                }
-            )
-            return jsonify({
-                "error": str(e),
-                "request_id": request_id,
-                "payment_ref": payment_ref
-            }), 400
-        
-        # ========================================
-        # EXEMPLO 3: ERRO GENÉRICO/INESPERADO
-        # ========================================
-        except Exception as e:
-            # LOG: Erro inesperado - precisa investigação
-            # ✅ BOM: Use padrões Datadog (error.type, error.message, error.stack)
-            error_stack = traceback.format_exc()
-            _attach_error(span, e, error_stack)
-            _attach_error(tracer.current_root_span(), e, error_stack)
-            logger.error(
-                f"Unexpected error in simulation: {str(e)}",
-                extra={
-                    'operation': 'error.simulation',
-                    'error.type': type(e).__name__,
-                    'error.message': str(e),
-                    'error.stack': error_stack,
-                    'error_category': 'unexpected',
-                    'is_test': True
-                }
-            )
-            return jsonify({
-                "error": "Internal server error",
-                "request_id": request_id,
-                "payment_ref": payment_ref
-            }), 500
+    # LOG: Início da simulação
+    logger.info(
+        f"Simulating error of type: {error_type}",
+        extra={
+            'operation': 'error.simulation',
+            'error.type': error_type,
+            'is_test': True  # Flag para identificar que é teste
+        }
+    )
+
+    # Simula diferentes tipos de erros
+    if error_type == 'division':
+        divisor = int(request.args.get('divisor', '0'))
+        dividend = int(request.args.get('dividend', '1'))
+        dividend / divisor  # ZeroDivisionError
+        return ""
+
+    if error_type == 'timeout':
+        timeout_seconds = int(request.args.get('timeout', '30'))
+        time.sleep(timeout_seconds)  # Simula timeout
+        raise TimeoutError("Simulated request timeout")
+
+    if error_type == 'validation':
+        amount = float(amount_raw)
+        if amount <= 0:
+            raise ValueError("Invalid amount: must be greater than zero")
+        raise ValueError("Invalid input parameters provided")
+
+    raise Exception(f"Simulated {error_type} error for testing")
 
