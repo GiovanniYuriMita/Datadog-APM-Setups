@@ -216,6 +216,14 @@ function App() {
     )
   }
 
+  const triggerFrontendError = () => {
+    throw new Error('Simulated frontend exception for RUM Error Tracking')
+  }
+
+  const triggerFrontendRejection = () => {
+    Promise.reject(new Error('Simulated frontend unhandled rejection'))
+  }
+
   const handleLogin = (event) => {
     event.preventDefault()
     const name = profile.name.trim()
@@ -605,6 +613,19 @@ function App() {
           </div>
           <button onClick={handleComputeError}>Executar compute</button>
           <ResultPanel result={computeErrorResult} />
+        </section>
+
+        <section className="card">
+          <h2>Erro apenas no frontend</h2>
+          <p>Dispara erro local para o RUM Error Tracking.</p>
+          <div className="button-row">
+            <button className="ghost" onClick={triggerFrontendError}>
+              Lançar exception
+            </button>
+            <button className="ghost" onClick={triggerFrontendRejection}>
+              Unhandled rejection
+            </button>
+          </div>
         </section>
       </main>
     </div>

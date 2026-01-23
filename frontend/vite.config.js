@@ -9,5 +9,9 @@ export default defineConfig({
       '/api': 'http://localhost:8080',
       '/health': 'http://localhost:8080'
     }
+  },
+  build: {
+    sourcemap: true,
+    minify: 'terser',
   }
 })

@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import { datadogRum } from '@datadog/browser-rum';
 import { datadogLogs } from '@datadog/browser-logs';
+import version from '../package.json';
 
 datadogRum.init({
     applicationId: '400e1165-3386-4180-86b5-1f3613fc7be9',
@@ -11,7 +12,7 @@ datadogRum.init({
     site: 'datadoghq.com',
     service: 'chofs-demo',
     env: 'chofs',
-    version: '1.0.0',
+    version: version.version,
     sessionSampleRate: 100,
     sessionReplaySampleRate: 100,
     trackBfcacheViews: true,
@@ -27,7 +28,7 @@ datadogLogs.init({
   site: 'datadoghq.com',
   service: 'chofs-demo',
   env: 'chofs',
-  version: '1.0.0',
+  version: version.version,
   forwardErrorsToLogs: true,
 })
 

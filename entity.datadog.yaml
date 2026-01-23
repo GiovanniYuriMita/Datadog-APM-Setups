@@ -1,0 +1,14 @@
+apiVersion: v3
+kind: system
+metadata:
+  name: chofs-api
+  displayName: "Chofs-API"
+  contacts:
+    - name: Payment Team
+      type: email
+      contact: giovanni.chaves@delfia.tech
+  owner: chofs-team
+spec:
+  components:
+    - service:chofs-api
+    - frontend:chofs-demo
