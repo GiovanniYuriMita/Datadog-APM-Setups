@@ -68,6 +68,9 @@ function App() {
   const [analyticsResult, setAnalyticsResult] = useState(null)
   const [errorResult, setErrorResult] = useState(null)
   const [computeErrorResult, setComputeErrorResult] = useState(null)
+  const [dynamicBatchResult, setDynamicBatchResult] = useState(null)
+  const [dynamicSlowResult, setDynamicSlowResult] = useState(null)
+  const [dynamicHiddenErrorResult, setDynamicHiddenErrorResult] = useState(null)
 
   const [userId, setUserId] = useState('user_001')
   const [transactionForm, setTransactionForm] = useState({
@@ -89,6 +92,21 @@ function App() {
     multiplier: '2',
     operation: 'scale',
     force_error: true
+  })
+  const [dynamicBatchForm, setDynamicBatchForm] = useState({
+    batch_id: 'batch-workshop-001',
+    tax_rate: '0.12',
+    discount_threshold: '1200'
+  })
+  const [dynamicSlowForm, setDynamicSlowForm] = useState({
+    user_id: 'user_001',
+    delay_seconds: '10'
+  })
+  const [dynamicHiddenForm, setDynamicHiddenForm] = useState({
+    transaction_id: '',
+    retries: '1',
+    factor: '1.5',
+    baseline: '120'
   })
 
   useEffect(() => {
@@ -213,6 +231,48 @@ function App() {
     }
     setComputeErrorResult(
       await apiRequest({ path: '/api/error/compute', method: 'POST', body: payload })
+    )
+  }
+
+  const handleDynamicBatch = async () => {
+    const payload = {
+      batch_id: dynamicBatchForm.batch_id.trim() || 'batch-workshop-001',
+      tax_rate: Number(dynamicBatchForm.tax_rate),
+      discount_threshold: Number(dynamicBatchForm.discount_threshold),
+      records: [
+        { item_id: 'prod_001', unit_price: 999.99, quantity: 1 },
+        { item_id: 'prod_002', unit_price: 29.99, quantity: 2 },
+        { item_id: 'prod_003', unit_price: 79.99, quantity: 0 }
+      ]
+    }
+    setDynamicBatchResult(
+      await apiRequest({ path: '/api/dynamic/process-batch', method: 'POST', body: payload })
+    )
+  }
+
+  const handleDynamicSlow = async () => {
+    const payload = {
+      user_id: dynamicSlowForm.user_id.trim() || 'user_001',
+      delay_seconds: Number(dynamicSlowForm.delay_seconds),
+      records: [
+        { item_id: 'prod_001', unit_price: 999.99, quantity: 1 },
+        { item_id: 'prod_002', unit_price: 29.99, quantity: 2 }
+      ]
+    }
+    setDynamicSlowResult(
+      await apiRequest({ path: '/api/dynamic/slow-checkout', method: 'POST', body: payload })
+    )
+  }
+
+  const handleDynamicHiddenError = async () => {
+    const payload = {
+      transaction_id: dynamicHiddenForm.transaction_id.trim() || undefined,
+      retries: Number(dynamicHiddenForm.retries),
+      factor: Number(dynamicHiddenForm.factor),
+      baseline: Number(dynamicHiddenForm.baseline)
+    }
+    setDynamicHiddenErrorResult(
+      await apiRequest({ path: '/api/dynamic/hidden-error', method: 'POST', body: payload })
     )
   }
 
@@ -613,6 +673,125 @@ function App() {
           </div>
           <button onClick={handleComputeError}>Executar compute</button>
           <ResultPanel result={computeErrorResult} />
+        </section>
+
+        <section className="card dynamic-demo">
+          <h2>Dynamic Instrumentation Demo</h2>
+          <p>
+            Cenários para instrumentar pela UI do Datadog: entrada/saída,
+            lentidão e erro "escondido" com status incorreto.
+          </p>
+
+          <h3>1) process_batch (inputs/outputs)</h3>
+          <div className="field-grid">
+            <label>
+              batch_id
+              <input
+                type="text"
+                value={dynamicBatchForm.batch_id}
+                onChange={(event) =>
+                  setDynamicBatchForm((prev) => ({ ...prev, batch_id: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              tax_rate
+              <input
+                type="number"
+                step="0.01"
+                value={dynamicBatchForm.tax_rate}
+                onChange={(event) =>
+                  setDynamicBatchForm((prev) => ({ ...prev, tax_rate: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              discount_threshold
+              <input
+                type="number"
+                value={dynamicBatchForm.discount_threshold}
+                onChange={(event) =>
+                  setDynamicBatchForm((prev) => ({ ...prev, discount_threshold: event.target.value }))
+                }
+              />
+            </label>
+          </div>
+          <button onClick={handleDynamicBatch}>Executar process_batch</button>
+          <ResultPanel result={dynamicBatchResult} />
+
+          <h3>2) Slow checkout (~10s)</h3>
+          <div className="field-grid">
+            <label>
+              user_id
+              <input
+                type="text"
+                value={dynamicSlowForm.user_id}
+                onChange={(event) =>
+                  setDynamicSlowForm((prev) => ({ ...prev, user_id: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              delay_seconds
+              <input
+                type="number"
+                min="1"
+                value={dynamicSlowForm.delay_seconds}
+                onChange={(event) =>
+                  setDynamicSlowForm((prev) => ({ ...prev, delay_seconds: event.target.value }))
+                }
+              />
+            </label>
+          </div>
+          <button onClick={handleDynamicSlow}>Executar slow-checkout</button>
+          <ResultPanel result={dynamicSlowResult} />
+
+          <h3>3) Hidden error (retorna 200)</h3>
+          <div className="field-grid">
+            <label>
+              transaction_id (vazio para falhar)
+              <input
+                type="text"
+                value={dynamicHiddenForm.transaction_id}
+                onChange={(event) =>
+                  setDynamicHiddenForm((prev) => ({ ...prev, transaction_id: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              retries
+              <input
+                type="number"
+                value={dynamicHiddenForm.retries}
+                onChange={(event) =>
+                  setDynamicHiddenForm((prev) => ({ ...prev, retries: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              factor
+              <input
+                type="number"
+                step="0.1"
+                value={dynamicHiddenForm.factor}
+                onChange={(event) =>
+                  setDynamicHiddenForm((prev) => ({ ...prev, factor: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              baseline
+              <input
+                type="number"
+                value={dynamicHiddenForm.baseline}
+                onChange={(event) =>
+                  setDynamicHiddenForm((prev) => ({ ...prev, baseline: event.target.value }))
+                }
+              />
+            </label>
+          </div>
+          <button onClick={handleDynamicHiddenError}>Executar hidden-error</button>
+          <ResultPanel result={dynamicHiddenErrorResult} />
         </section>
 
         <section className="card">

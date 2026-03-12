@@ -51,7 +51,8 @@ from routes import (
     products_bp,
     transactions_bp,
     analytics_bp,
-    errors_bp
+    errors_bp,
+    dynamic_demo_bp,
 )
 from routes.middleware_demo import middleware_demo_bp
 
@@ -127,6 +128,7 @@ app.register_blueprint(products_bp)
 app.register_blueprint(transactions_bp)
 app.register_blueprint(analytics_bp)
 app.register_blueprint(errors_bp)
+app.register_blueprint(dynamic_demo_bp)
 app.register_blueprint(middleware_demo_bp)
 
 # ============================================================================

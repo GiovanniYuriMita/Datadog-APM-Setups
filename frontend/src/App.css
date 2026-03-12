@@ -84,6 +84,17 @@
   color: #5a6373;
 }
 
+.card h3 {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: #24314d;
+}
+
+.card.dynamic-demo {
+  border-color: #c6d4ff;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+}
+
 .field-row,
 .field-grid {
   display: grid;

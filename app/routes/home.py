@@ -26,7 +26,10 @@ def index():
             "products": "GET /api/products - List all products",
             "transaction": "POST /api/transaction - Create transaction",
             "analytics": "GET /api/analytics/transactions - Get transaction analytics",
-            "error": "GET /api/error/simulate?type=<error_type> - Simulate errors"
+            "error": "GET /api/error/simulate?type=<error_type> - Simulate errors",
+            "dynamic_process_batch": "POST /api/dynamic/process-batch - Batch demo for dynamic instrumentation",
+            "dynamic_slow_checkout": "POST /api/dynamic/slow-checkout - Slow endpoint (~10s) for investigation",
+            "dynamic_hidden_error": "POST /api/dynamic/hidden-error - Swallowed exception returning 200"
         },
         "test_data": {
             "available_users": list(MOCK_USERS.keys()),

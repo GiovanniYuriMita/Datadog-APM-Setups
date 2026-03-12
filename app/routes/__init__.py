@@ -11,6 +11,7 @@ from .transactions import transactions_bp
 from .analytics import analytics_bp
 from .errors import errors_bp
 from .home import home_bp
+from .dynamic_demo import dynamic_demo_bp
 
 __all__ = [
     'health_bp',
@@ -19,6 +20,7 @@ __all__ = [
     'transactions_bp',
     'analytics_bp',
     'errors_bp',
-    'home_bp'
+    'home_bp',
+    'dynamic_demo_bp',
 ]
 
